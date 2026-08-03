@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String?
+  googleId      String?
+  githubId      String?
+  phone         String?   @unique
+  name          String
+  bio           String?
+  avatarUrl     String?
+  trustScore    Float     @default(100.0)
+  level         Int       @default(1)
+  xp            Int       @default(0)
+  verified      Boolean   @default(false)
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  products      Product[]
+  wishlist      Wishlist[]
+  sentOffers    Offer[]   @relation("SentOffers")
+  receivedOffers Offer[]  @relation("ReceivedOffers")
+  messages      Message[] @relation("UserMessages")
+  reviewsGiven  Review[]  @relation("ReviewsGiven")
+  reviewsReceived Review[] @relation("ReviewsReceived")
+  notifications Notification[]
+  reports       Report[]  @relation("Reporter")
+  followers     Follows[] @relation("following")
+  following     Follows[] @relation("follower")
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+model Follows {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User @relation("follower", fields: [followerId], references: [id])
+  following   User @relation("following", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  condition   Condition
+  brand       String?
+  category    Category
+  tags        String[]
+  images      String[]
+  videoUrl    String?
+  latitude    Float?
+  longitude   Float?
+  locationName String?
+  swapValue   Float?
+  status      ProductStatus @default(AVAILABLE)
+  
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  offersOffered OfferProduct[] @relation("OfferedProducts")
+  offersTarget  Offer[]        @relation("TargetProduct")
+  wishlist      Wishlist[]
+}
+
+enum Condition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+  POOR
+}
+
+enum Category {
+  ELECTRONICS
+  BOOKS
+  CLOTHES
+  FURNITURE
+  SHOES
+  GAMING
+  ACCESSORIES
+  SPORTS
+  COLLECTIBLES
+  VEHICLES
+  MUSICAL_INSTRUMENTS
+  HOME_APPLIANCES
+  OTHER
+}
+
+enum ProductStatus {
+  AVAILABLE
+  PENDING
+  SWAPPED
+  HIDDEN
+  DELETED
+}
+
+model Offer {
+  id              String      @id @default(uuid())
+  status          OfferStatus @default(PENDING)
+  cashAdded       Float?      @default(0)
+  
+  senderId        String
+  sender          User        @relation("SentOffers", fields: [senderId], references: [id])
+  
+  receiverId      String
+  receiver        User        @relation("ReceivedOffers", fields: [receiverId], references: [id])
+  
+  targetProductId String
+  targetProduct   Product     @relation("TargetProduct", fields: [targetProductId], references: [id])
+
+  offeredProducts OfferProduct[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model OfferProduct {
+  offerId   String
+  productId String
+  offer     Offer   @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  product   Product @relation("OfferedProducts", fields: [productId], references: [id])
+
+  @@id([offerId, productId])
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COUNTERED
+  CANCELLED
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String?
+  imageUrl  String?
+  videoUrl  String?
+  voiceUrl  String?
+  locationLat Float?
+  locationLng Float?
+  isRead    Boolean  @default(false)
+  
+  senderId  String
+  sender    User     @relation("UserMessages", fields: [senderId], references: [id])
+  
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Chat {
+  id        String    @id @default(uuid())
+  messages  Message[]
+  users     ChatUser[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model ChatUser {
+  chatId String
+  userId String
+  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  
+  @@id([chatId, userId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      NotifType
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  linkUrl   String?
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+}
+
+enum NotifType {
+  MESSAGE
+  OFFER_RECEIVED
+  OFFER_ACCEPTED
+  OFFER_REJECTED
+  SYSTEM
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  rating      Int
+  comment     String?
+  
+  reviewerId  String
+  reviewer    User     @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  
+  revieweeId  String
+  reviewee    User     @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  
+  createdAt   DateTime @default(now())
+}
+
+model Wishlist {
+  userId    String
+  productId String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+}
+
+model Report {
+  id          String       @id @default(uuid())
+  reason      String
+  details     String?
+  status      ReportStatus @default(PENDING)
+  
+  reporterId  String
+  reporter    User         @relation("Reporter", fields: [reporterId], references: [id])
+  
+  targetId    String       
+  targetType  ReportTarget
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportTarget {
+  USER
+  PRODUCT
+  MESSAGE
+}
