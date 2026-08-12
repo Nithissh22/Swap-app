@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { env } from './config/env';
+import authRoutes from './routes/auth.routes';
 
 const app = express();
 const httpServer = createServer(app);
@@ -34,6 +35,8 @@ io.on('connection', (socket) => {
 });
 
 // Routes
+app.use('/api/auth', authRoutes);
+
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'SWAP API is running' });
 });
